@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ミニYouTube</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 0;
+            background-color: #0f0f0f; color: #fff;
+            font-family: 'Roboto', Arial, sans-serif;
+        }
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 24px; background-color: #212121;
+            position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #383838;
+        }
+        h1 { margin: 0; font-size: 20px; color: #ff0000; cursor: pointer; }
+        .upload-btn {
+            background-color: #cc0000; color: white; border: none;
+            padding: 8px 16px; border-radius: 18px; font-weight: bold; cursor: pointer;
+        }
+        .upload-btn:hover { background-color: #e60000; }
+
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+        
+        /* 動画グリッド（人気順に自動で並ぶ） */
+        .video-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;
+        }
+        .video-card {
+            background: #1f1f1f; border-radius: 12px; overflow: hidden;
+            cursor: pointer; transition: 0.2s; display: flex; flex-direction: column;
+            position: relative;
+        }
+        .video-card:hover { transform: scale(1.02); }
+        .thumbnail-container { width: 100%; aspect-ratio: 16/9; background: #000; position: relative; }
+        .thumbnail-container img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .video-info { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+        .video-title { font-size: 16px; font-weight: bold; margin: 0; word-break: break-all; }
+        .video-stats { font-size: 13px; color: #aaa; display: flex; justify-content: space-between; }
+
+        /* 削除ボタン（投稿者IPが一致したときのみ機能する） */
+        .delete-btn {
+            background: #333; color: #ff4d4d; border: none; padding: 4px 8px;
+            border-radius: 4px; font-size: 12px; cursor: pointer; margin-top: 6px; align-self: flex-start;
+        }
+        .delete-btn:hover { background: #ff4d4d; color: #fff; }
+
+        /* 投稿モーダル */
+        #upload-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: #212121; padding: 24px; border-radius: 12px; width: 90%; max-width: 450px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .modal-content h2 { margin: 0 0 10px 0; font-size: 18px; }
+        .modal-content label { font-size: 14px; color: #aaa; }
+        .modal-content input[type="text"], .modal-content input[type="file"] {
+            width: 100%; padding: 10px; background: #121212; border: 1px solid #383838;
+            color: #fff; border-radius: 6px;
+        }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-actions button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; }
+        .cancel-btn { background: #444; color: #fff; }
+        .submit-btn { background: #3ea6ff; color: #000; }
+
+        /* 動画再生モーダル */
+        #player-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000;
+        }
+        .player-content { width: 90%; max-width: 800px; display: flex; flex-direction: column; gap: 12px; }
+        .player-content video { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 8px; }
+        .player-actions { display: flex; justify-content: space-between; align-items: center; }
+        .close-player { background: #444; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        .like-btn { background: #2e7d32; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 onclick="loadVideos()">▶ ミニYouTube</h1>
+        <button class="upload-btn" onclick="openUploadModal()">＋ 投稿</button>
+    </header>
+
+    <div class="container">
+        <div id="video-grid" class="video-grid">
+            <!-- 動画一覧がここに並びます -->
+        </div>
+    </div>
+
+    <!-- 投稿モーダル -->
+    <div id="upload-modal">
+        <div class="modal-content">
+            <h2>動画をアップロード</h2>
+            <label>タイトル</label>
+            <input type="text" id="video-title" placeholder="動画のタイトルを入力">
+            
+            <label>サムネイル画像</label>
+            <input type="file" id="thumb-file" accept="image/*">
+            
+            <label>動画ファイル</label>
+            <input type="file" id="video-file" accept="video/*">
+
+            <div class="modal-actions">
+                <button class="cancel-btn" onclick="closeUploadModal()">キャンセル</button>
+                <button class="submit-btn" onclick="uploadVideo()">アップロード</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 再生モーダル -->
+    <div id="player-modal">
+        <div class="player-content">
+            <video id="active-player" controls></video>
+            <h2 id="player-title" style="margin:0;"></h2>
+            <div class="player-actions">
+                <button class="like-btn" id="like-action-btn">👍 高評価 (<span id="player-likes">0</span>)</button>
+                <button class="close-player" onclick="closePlayer()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyX9Cb15kpNYsKLahtFzo_08etEy28dcLLyG3e_YwqRnKYfbMFxCDCki1nfwmB6cBnF/exec';
+
+        let currentActiveId = null;
+
+        window.onload = loadVideos;
+
+        function loadVideos() {
+            fetch(`${GAS_API_URL}?action=list`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        renderGrid(data.videos);
+                    }
+                });
+        }
+
+        function renderGrid(videos) {
+            const grid = document.getElementById('video-grid');
+            grid.innerHTML = '';
+
+            videos.forEach(v => {
+                const card = document.createElement('div');
+                card.className = 'video-card';
+
+                card.innerHTML = `
+                    <div class="thumbnail-container">
+                        <img src="${v.thumbnail || ''}" alt="サムネイル">
+                    </div>
+                    <div class="video-info">
+                        <p class="video-title">${escapeHtml(v.title)}</p>
+                        <div class="video-stats">
+                            <span>閲覧: ${v.views}回</span>
+                            <span>👍 ${v.likes}</span>
+                        </div>
+                        <button class="delete-btn" onclick="event.stopPropagation(); deleteVideo('${v.id}')">削除する</button>
+                    </div>
+                `;
+
+                card.onclick = () => openPlayer(v);
+                grid.appendChild(card);
+            });
+        }
+
+        function openUploadModal() {
+            document.getElementById('upload-modal').style.display = 'flex';
+        }
+        function closeUploadModal() {
+            document.getElementById('upload-modal').style.display = 'none';
+        }
+
+        function openPlayer(video) {
+            currentActiveId = video.id;
+            const player = document.getElementById('active-player');
+            player.src = video.videoUrl;
+            document.getElementById('player-title').textContent = video.title;
+            document.getElementById('player-likes').textContent = video.likes;
+            document.getElementById('player-modal').style.display = 'flex';
+            player.play();
+
+            document.getElementById('like-action-btn').onclick = () => {
+                fetch(GAS_API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'like', id: video.id })
+                }).then(() => {
+                    video.likes++;
+                    document.getElementById('player-likes').textContent = video.likes;
+                    loadVideos();
+                });
+            };
+        }
+
+        function closePlayer() {
+            const player = document.getElementById('active-player');
+            player.pause();
+            player.src = '';
+            document.getElementById('player-modal').style.display = 'none';
+        }
+
+        function uploadVideo() {
+            const title = document.getElementById('video-title').value.trim();
+            const thumbFile = document.getElementById('thumb-file').files[0];
+            const videoFile = document.getElementById('video-file').files[0];
+
+            if (!title || !videoFile) {
+                alert('タイトルと動画ファイルは必須です！');
+                return;
+            }
+
+            alert('アップロード中です。しばらくお待ちください...');
+
+            const readerThumb = new FileReader();
+            readerThumb.onload = function(e) {
+                const thumbBase64 = e.target.result;
+
+                const readerVideo = new FileReader();
+                readerVideo.onload = function(ev) {
+                    const videoBase64 = ev.target.result;
+
+                    fetch(GAS_API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'upload',
+                            title: title,
+                            thumbnail: thumbBase64,
+                            videoUrl: videoBase64
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(res => {
+                        if (res.status === 'success') {
+                            alert('投稿が完了しました！');
+                            closeUploadModal();
+                            document.getElementById('video-title').value = '';
+                            document.getElementById('thumb-file').value = '';
+                            document.getElementById('video-file').value = '';
+                            loadVideos();
+                        } else {
+                            alert('エラーが発生しました');
+                        }
+                    });
+                };
+                readerVideo.readAsDataURL(videoFile);
+            };
+
+            if (thumbFile) {
+                readerThumb.readAsDataURL(thumbFile);
+            } else {
+                readerThumb.onload({ target: { result: '' } });
+            }
+        }
+
+        function deleteVideo(id) {
+            if (!confirm('この動画を削除しますか？')) return;
+
+            fetch(GAS_API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'delete', id: id })
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    alert('動画を削除しました');
+                    loadVideos();
+                } else {
+                    alert(res.message || '削除権限がありません（あなたが投稿した端末・ブラウザからのみ削除できます）');
+                }
+            });
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&'`<>]/g, match => ({
+                '&': '&amp;', "'": '&#x27;', '`': '&#x60;', '<': '&lt;', '>': '&gt;'
+            }[match]));
+        }
+    </script>
+</body>
+</html>
