@@ -40,7 +40,6 @@
         .video-title { font-size: 16px; font-weight: bold; margin: 0; word-break: break-all; }
         .video-stats { font-size: 13px; color: #aaa; display: flex; justify-content: space-between; }
 
-        /* 削除要請ボタン */
         .del-request-btn {
             background: #333; color: #ff4d4d; border: none; padding: 4px 8px;
             border-radius: 4px; font-size: 12px; cursor: pointer; margin-top: 6px; align-self: flex-start;
@@ -67,6 +66,23 @@
         .cancel-btn { background: #444; color: #fff; }
         .submit-btn { background: #3ea6ff; color: #000; }
 
+        /* くるくるローディング画面のスタイル */
+        #loading-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); z-index: 2000;
+            justify-content: center; align-items: center; flex-direction: column; gap: 16px;
+            color: #fff; font-size: 16px; font-weight: bold;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid #383838;
+            border-top: 5px solid #ff0000; border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         /* 再生モーダル */
         .player-content { width: 90%; max-width: 800px; display: flex; flex-direction: column; gap: 12px; background: #212121; padding: 20px; border-radius: 12px; }
         .player-content video { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 8px; }
@@ -85,6 +101,12 @@
 
     <div class="container">
         <div id="video-grid" class="video-grid"></div>
+    </div>
+
+    <!-- アップロード中のくるくるローディング画面 -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div>動画を最適化してアップロード中...</div>
     </div>
 
     <!-- 投稿モーダル -->
@@ -147,7 +169,7 @@
                         <p class="video-title">${escapeHtml(v.title)}</p>
                         <div class="video-stats">
                             <span>閲覧: ${v.views}回</span>
-                            <span>👍 ${v.likes} (要請:${v.deleteRequests})</span>
+                            <span>👍 ${v.likes}</span>
                         </div>
                         <button class="del-request-btn" onclick="event.stopPropagation(); requestDelete('${v.id}')">削除要請する</button>
                     </div>
@@ -160,6 +182,8 @@
 
         function openUploadModal() { document.getElementById('upload-modal').style.display = 'flex'; }
         function closeUploadModal() { document.getElementById('upload-modal').style.display = 'none'; }
+        function showLoading() { document.getElementById('loading-overlay').style.display = 'flex'; }
+        function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 
         function openPlayer(video) {
             const player = document.getElementById('active-player');
@@ -170,7 +194,6 @@
             const likesCountEl = document.getElementById('player-likes');
             likesCountEl.textContent = video.likes;
 
-            // すでに高評価したかチェック（ブラウザのLocalStorageで判定）
             const likedList = JSON.parse(localStorage.getItem('liked_videos') || '[]');
             if (likedList.includes(video.id)) {
                 likeBtn.disabled = true;
@@ -205,6 +228,7 @@
             document.getElementById('player-modal').style.display = 'none';
         }
 
+        // 動画をロードして720px幅にリサイズ・圧縮してから送信する関数
         function uploadVideo() {
             const title = document.getElementById('video-title').value.trim();
             const thumbFile = document.getElementById('thumb-file').files[0];
@@ -215,39 +239,114 @@
                 return;
             }
 
-            alert('アップロード中です...');
+            closeUploadModal();
+            showLoading(); // くるくるアニメーション表示
 
             const readerThumb = new FileReader();
             readerThumb.onload = function(e) {
                 const thumbBase64 = e.target.result;
-                const readerVideo = new FileReader();
-                readerVideo.onload = function(ev) {
-                    const videoBase64 = ev.target.result;
 
-                    fetch(GAS_API_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            action: 'upload',
-                            title: title,
-                            thumbnail: thumbBase64,
-                            videoUrl: videoBase64
-                        })
-                    })
-                    .then(res => res.json())
-                    .then(res => {
-                        if (res.status === 'success') {
-                            alert('投稿が完了しました！');
-                            closeUploadModal();
-                            document.getElementById('video-title').value = '';
-                            document.getElementById('thumb-file').value = '';
-                            document.getElementById('video-file').value = '';
-                            loadVideos();
-                        } else {
-                            alert('エラーが発生しました');
+                // 動画ファイルをブラウザ上で縮小（最大幅720px）処理する
+                const videoElement = document.createElement('video');
+                videoElement.src = URL.createObjectURL(videoFile);
+                videoElement.muted = true;
+                videoElement.playsInline = true;
+
+                videoElement.onloadedmetadata = function() {
+                    let width = videoElement.videoWidth;
+                    let height = videoElement.videoHeight;
+                    const maxWidth = 720;
+
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+
+                    videoElement.width = width;
+                    videoElement.height = height;
+                    videoElement.play();
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+
+                    const chunks = [];
+                    const mediaStream = canvas.captureStream(30); // 30fps
+                    let recorder;
+
+                    try {
+                        recorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm;codecs=vp9' });
+                    } catch (err) {
+                        recorder = new MediaRecorder(mediaStream); // フォールバック
+                    }
+
+                    recorder.ondataavailable = function(event) {
+                        if (event.data.size > 0) chunks.push(event.data);
+                    };
+
+                    recorder.onstop = function() {
+                        const compressedBlob = new Blob(chunks, { type: 'video/webm' });
+                        const readerCompressed = new FileReader();
+
+                        readerCompressed.onload = function(ev) {
+                            const videoBase64 = ev.target.result;
+
+                            // サーバー（GAS）へ送信
+                            fetch(GAS_API_URL, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    action: 'upload',
+                                    title: title,
+                                    thumbnail: thumbBase64,
+                                    videoUrl: videoBase64
+                                })
+                            })
+                            .then(res => res.json())
+                            .then(res => {
+                                hideLoading(); // くるくる終了
+                                if (res.status === 'success') {
+                                    alert('投稿が完了しました！');
+                                    document.getElementById('video-title').value = '';
+                                    document.getElementById('thumb-file').value = '';
+                                    document.getElementById('video-file').value = '';
+                                    loadVideos();
+                                } else {
+                                    alert('エラーが発生しました');
+                                }
+                            }).catch(() => {
+                                hideLoading();
+                                alert('通信エラーが発生しました');
+                            });
+                        };
+                        readerCompressed.readAsDataURL(compressedBlob);
+                    };
+
+                    recorder.start();
+
+                    // 動画の再生に合わせてキャンバスに描き込み、軽量な動画として再エンコード
+                    function drawFrame() {
+                        if (videoElement.ended || videoElement.paused) {
+                            recorder.stop();
+                            return;
                         }
-                    });
+                        ctx.drawImage(videoElement, 0, 0, width, height);
+                        requestAnimationFrame(drawFrame);
+                    }
+
+                    videoElement.onplay = () => {
+                        requestAnimationFrame(drawFrame);
+                    };
                 };
-                readerVideo.readAsDataURL(videoFile);
+
+                videoElement.onerror = function() {
+                    // もしリサイズ処理でエラーが出た場合は元のファイルのまま送信する安全策
+                    const readerVideo = new FileReader();
+                    readerVideo.onload = function(ev) {
+                        sendDirect(title, thumbBase64, ev.target.result);
+                    };
+                    readerVideo.readAsDataURL(videoFile);
+                };
             };
 
             if (thumbFile) {
@@ -257,7 +356,28 @@
             }
         }
 
-        // 削除要請（同じIPからの連投制限）
+        function sendDirect(title, thumbBase64, videoBase64) {
+            fetch(GAS_API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'upload',
+                    title: title,
+                    thumbnail: thumbBase64,
+                    videoUrl: videoBase64
+                })
+            })
+            .then(res => res.json())
+            .then(res => {
+                hideLoading();
+                if (res.status === 'success') {
+                    alert('投稿が完了しました！');
+                    loadVideos();
+                } else {
+                    alert('エラーが発生しました');
+                }
+            });
+        }
+
         function requestDelete(id) {
             if (!confirm('この動画の削除要請を送りますか？')) return;
 
