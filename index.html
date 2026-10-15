@@ -18,15 +18,15 @@
             padding: 12px 24px; background-color: #212121;
             position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #383838;
         }
-        /* ヘッダーのロゴ部分（画像と文字をきれいに並べる） */
+        /* ヘッダーのロゴ部分のレイアウト */
         .logo-area {
             display: flex; align-items: center; gap: 8px; cursor: pointer;
         }
-        .logo-icon {
+        .logo-area img {
             height: 28px; width: auto; object-fit: contain;
         }
         h1 { margin: 0; font-size: 20px; color: #ff0000; }
-        
+
         .upload-btn {
             background-color: #cc0000; color: white; border: none;
             padding: 8px 16px; border-radius: 18px; font-weight: bold; cursor: pointer;
@@ -106,7 +106,7 @@
 
     <header>
         <div class="logo-area" onclick="loadVideos()">
-            <img src="images (1).png" alt="ロゴアイコン" class="logo-icon">
+            <img src="images (1).png" alt="アイコン">
             <h1>ロレtube</h1>
         </div>
         <button class="upload-btn" onclick="openUploadModal()">＋ 投稿</button>
