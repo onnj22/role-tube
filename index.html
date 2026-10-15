@@ -53,13 +53,31 @@
         }
         .del-request-btn:hover { background: #ff4d4d; color: #fff; }
 
-        /* モーダル共通 */
-        #upload-modal, #player-modal, #terms-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 3000;
+        /* 利用規約モーダル（強制表示） */
+        #terms-modal {
+            display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); justify-content: center; align-items: center; z-index: 3000;
         }
-        #terms-modal { display: flex; } /* 最初は強制表示させるため */
+        .terms-content {
+            background: #212121; padding: 24px; border-radius: 12px; width: 90%; max-width: 500px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .terms-content h2 { margin: 0; font-size: 20px; color: #ff0000; text-align: center; }
+        .terms-box {
+            background: #121212; border: 1px solid #383838; padding: 12px; border-radius: 6px;
+            height: 200px; overflow-y: auto; font-size: 13px; color: #ccc; line-height: 1.6;
+        }
+        .terms-btn {
+            background: #cc0000; color: white; border: none; padding: 12px;
+            border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; width: 100%;
+        }
+        .terms-btn:hover { background: #e60000; }
 
+        /* モーダル共通 */
+        #upload-modal, #player-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 1000;
+        }
         .modal-content {
             background: #212121; padding: 24px; border-radius: 12px; width: 90%; max-width: 450px;
             display: flex; flex-direction: column; gap: 16px;
@@ -75,16 +93,10 @@
         .cancel-btn { background: #444; color: #fff; }
         .submit-btn { background: #3ea6ff; color: #000; }
 
-        /* 利用規約専用の中身 */
-        .terms-box {
-            background: #121212; padding: 12px; border: 1px solid #383838;
-            border-radius: 6px; max-height: 150px; overflow-y: auto; font-size: 13px; color: #ccc; line-height: 1.5;
-        }
-
         /* くるくるローディング画面 */
         #loading-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8); z-index: 4000;
+            background: rgba(0, 0, 0, 0.8); z-index: 2000;
             justify-content: center; align-items: center; flex-direction: column; gap: 16px;
             color: #fff; font-size: 16px; font-weight: bold;
         }
@@ -116,7 +128,8 @@
             background: #181818; padding: 16px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px;
         }
         .comments-section h3 { margin: 0; font-size: 16px; }
-        .comment-input-box {, comment-input-box input {
+        .comment-input-box { display: flex; gap: 8px; }
+        .comment-input-box input {
             flex: 1; padding: 8px 12px; background: #121212; border: 1px solid #383838;
             color: #fff; border-radius: 6px; font-size: 14px;
         }
@@ -130,20 +143,23 @@
 </head>
 <body>
 
-    <!-- 初回利用規約モーダル -->
+    <!-- 利用規約モーダル（強制表示） -->
     <div id="terms-modal">
-        <div class="modal-content">
-            <h2>利用規約への同意</h2>
+        <div class="terms-content">
+            <h2>ロレtube 利用規約</h2>
             <div class="terms-box">
-                「ロレtube」をご利用いただきありがとうございます。<br><br>
-                1. 法律や公序良俗に反する動画の投稿やコメントは禁止です。<br>
-                2. 他のユーザーの迷惑となる行為を行わないでください。<br>
-                3. 不適切なコンテンツには削除要請機能が利用されます。<br><br>
-                上記規約に同意の上、「OK」ボタンを押してサイトにお進みください。
+                <p><strong>第1条（はじめに）</strong><br>
+                本サイト「ロレtube」（以下、「当サイト」）をご利用いただきありがとうございます。当サイトを利用される前に、以下の利用規約をよくお読みください。</p>
+                
+                <p><strong>第2条（免責事項・責任の制限）</strong><br>
+                1. 当サイトに掲載される動画、画像、コメント等のコンテンツに関して、その正確性、安全性、合法性、著作権の遵守などについて、管理人は一切の保証をいたしません。<br>
+                2. ユーザーが当サイトを利用したこと、または利用できなかったことによって生じるいかなる損害（データの消失、端末の故障、トラブル、精神的損害などを含みますがこれらに限定されません）について、<strong>管理人は理由を問わず一切の責任を負いません。</strong><br>
+                3. 当サイト内で発生したユーザー間、または第三者との間のいかなるトラブルについても、管理人は一切関与せず、一切の責任を負わないものとします。</p>
+
+                <p><strong>第3条（禁止事項）</strong><br>
+                公序良俗に反する行為、著作権侵害にあたるコンテンツの投稿、スパム行為、その他管理人が不適切と判断する行為を禁止します。</p>
             </div>
-            <div class="modal-actions" style="justify-content: center;">
-                <button class="submit-btn" style="width: 100%;" onclick="agreeTerms()">OK（同意して進む）</button>
-            </div>
+            <button class="terms-btn" onclick="agreeTerms()">同意してサイトに入る</button>
         </div>
     </div>
 
@@ -195,8 +211,8 @@
             <!-- コメント機能エリア -->
             <div class="comments-section">
                 <h3>コメント</h3>
-                <div class="comment-input-box" style="display: flex; gap: 8px;">
-                    <input type="text" id="comment-input" placeholder="コメントを追加..." style="flex:1; padding: 8px 12px; background: #121212; border: 1px solid #383838; color: #fff; border-radius: 6px;">
+                <div class="comment-input-box">
+                    <input type="text" id="comment-input" placeholder="コメントを追加...">
                     <button class="comment-submit-btn" onclick="postComment()">投稿</button>
                 </div>
                 <div id="comment-list" class="comment-list"></div>
@@ -208,19 +224,13 @@
         const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyX9Cb15kpNYsKLahtFzo_08etEy28dcLLyG3e_YwqRnKYfbMFxCDCki1nfwmB6cBnF/exec';
 
         window.onload = function() {
-            // 利用規約にすでに同意しているか確認
-            const agreed = localStorage.getItem('terms_agreed');
-            if (agreed === 'true') {
-                document.getElementById('terms-modal').style.display = 'none';
-                loadVideos();
-            }
+            // アクセス時に利用規約の同意状態をチェック（今回は「毎回必ず表示」にするためlocalStorageを使わず毎回表示します）
+            document.getElementById('terms-modal').style.display = 'flex';
+            loadVideos();
         };
 
-        // OKボタンを押したとき
         function agreeTerms() {
-            localStorage.setItem('terms_agreed', 'true');
             document.getElementById('terms-modal').style.display = 'none';
-            loadVideos(); // 同意したら動画を読み込み開始
         }
 
         let currentVideoId = null;
