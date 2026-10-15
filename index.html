@@ -25,14 +25,12 @@
 
         .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
         
-        /* 動画グリッド（人気順に自動で並ぶ） */
         .video-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;
         }
         .video-card {
             background: #1f1f1f; border-radius: 12px; overflow: hidden;
             cursor: pointer; transition: 0.2s; display: flex; flex-direction: column;
-            position: relative;
         }
         .video-card:hover { transform: scale(1.02); }
         .thumbnail-container { width: 100%; aspect-ratio: 16/9; background: #000; position: relative; }
@@ -42,17 +40,17 @@
         .video-title { font-size: 16px; font-weight: bold; margin: 0; word-break: break-all; }
         .video-stats { font-size: 13px; color: #aaa; display: flex; justify-content: space-between; }
 
-        /* 削除ボタン（投稿者IPが一致したときのみ機能する） */
-        .delete-btn {
+        /* 削除要請ボタン */
+        .del-request-btn {
             background: #333; color: #ff4d4d; border: none; padding: 4px 8px;
             border-radius: 4px; font-size: 12px; cursor: pointer; margin-top: 6px; align-self: flex-start;
         }
-        .delete-btn:hover { background: #ff4d4d; color: #fff; }
+        .del-request-btn:hover { background: #ff4d4d; color: #fff; }
 
-        /* 投稿モーダル */
-        #upload-modal {
+        /* モーダル共通 */
+        #upload-modal, #player-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000;
+            background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 1000;
         }
         .modal-content {
             background: #212121; padding: 24px; border-radius: 12px; width: 90%; max-width: 450px;
@@ -69,16 +67,13 @@
         .cancel-btn { background: #444; color: #fff; }
         .submit-btn { background: #3ea6ff; color: #000; }
 
-        /* 動画再生モーダル */
-        #player-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000;
-        }
-        .player-content { width: 90%; max-width: 800px; display: flex; flex-direction: column; gap: 12px; }
+        /* 再生モーダル */
+        .player-content { width: 90%; max-width: 800px; display: flex; flex-direction: column; gap: 12px; background: #212121; padding: 20px; border-radius: 12px; }
         .player-content video { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 8px; }
         .player-actions { display: flex; justify-content: space-between; align-items: center; }
         .close-player { background: #444; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
         .like-btn { background: #2e7d32; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .like-btn:disabled { background: #555; color: #aaa; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -89,9 +84,7 @@
     </header>
 
     <div class="container">
-        <div id="video-grid" class="video-grid">
-            <!-- 動画一覧がここに並びます -->
-        </div>
+        <div id="video-grid" class="video-grid"></div>
     </div>
 
     <!-- 投稿モーダル -->
@@ -100,13 +93,10 @@
             <h2>動画をアップロード</h2>
             <label>タイトル</label>
             <input type="text" id="video-title" placeholder="動画のタイトルを入力">
-            
             <label>サムネイル画像</label>
             <input type="file" id="thumb-file" accept="image/*">
-            
             <label>動画ファイル</label>
             <input type="file" id="video-file" accept="video/*">
-
             <div class="modal-actions">
                 <button class="cancel-btn" onclick="closeUploadModal()">キャンセル</button>
                 <button class="submit-btn" onclick="uploadVideo()">アップロード</button>
@@ -128,8 +118,6 @@
 
     <script>
         const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyX9Cb15kpNYsKLahtFzo_08etEy28dcLLyG3e_YwqRnKYfbMFxCDCki1nfwmB6cBnF/exec';
-
-        let currentActiveId = null;
 
         window.onload = loadVideos;
 
@@ -159,9 +147,9 @@
                         <p class="video-title">${escapeHtml(v.title)}</p>
                         <div class="video-stats">
                             <span>閲覧: ${v.views}回</span>
-                            <span>👍 ${v.likes}</span>
+                            <span>👍 ${v.likes} (要請:${v.deleteRequests})</span>
                         </div>
-                        <button class="delete-btn" onclick="event.stopPropagation(); deleteVideo('${v.id}')">削除する</button>
+                        <button class="del-request-btn" onclick="event.stopPropagation(); requestDelete('${v.id}')">削除要請する</button>
                     </div>
                 `;
 
@@ -170,32 +158,44 @@
             });
         }
 
-        function openUploadModal() {
-            document.getElementById('upload-modal').style.display = 'flex';
-        }
-        function closeUploadModal() {
-            document.getElementById('upload-modal').style.display = 'none';
-        }
+        function openUploadModal() { document.getElementById('upload-modal').style.display = 'flex'; }
+        function closeUploadModal() { document.getElementById('upload-modal').style.display = 'none'; }
 
         function openPlayer(video) {
-            currentActiveId = video.id;
             const player = document.getElementById('active-player');
             player.src = video.videoUrl;
             document.getElementById('player-title').textContent = video.title;
-            document.getElementById('player-likes').textContent = video.likes;
+            
+            const likeBtn = document.getElementById('like-action-btn');
+            const likesCountEl = document.getElementById('player-likes');
+            likesCountEl.textContent = video.likes;
+
+            // すでに高評価したかチェック（ブラウザのLocalStorageで判定）
+            const likedList = JSON.parse(localStorage.getItem('liked_videos') || '[]');
+            if (likedList.includes(video.id)) {
+                likeBtn.disabled = true;
+                likeBtn.textContent = `👍 高評価済み (${video.likes})`;
+            } else {
+                likeBtn.disabled = false;
+                likeBtn.textContent = `👍 高評価 (${video.likes})`;
+                likeBtn.onclick = () => {
+                    fetch(GAS_API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'like', id: video.id })
+                    }).then(() => {
+                        likedList.push(video.id);
+                        localStorage.setItem('liked_videos', JSON.stringify(likedList));
+                        video.likes++;
+                        likesCountEl.textContent = video.likes;
+                        likeBtn.disabled = true;
+                        likeBtn.textContent = `👍 高評価済み (${video.likes})`;
+                        loadVideos();
+                    });
+                };
+            }
+
             document.getElementById('player-modal').style.display = 'flex';
             player.play();
-
-            document.getElementById('like-action-btn').onclick = () => {
-                fetch(GAS_API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'like', id: video.id })
-                }).then(() => {
-                    video.likes++;
-                    document.getElementById('player-likes').textContent = video.likes;
-                    loadVideos();
-                });
-            };
         }
 
         function closePlayer() {
@@ -215,12 +215,11 @@
                 return;
             }
 
-            alert('アップロード中です。しばらくお待ちください...');
+            alert('アップロード中です...');
 
             const readerThumb = new FileReader();
             readerThumb.onload = function(e) {
                 const thumbBase64 = e.target.result;
-
                 const readerVideo = new FileReader();
                 readerVideo.onload = function(ev) {
                     const videoBase64 = ev.target.result;
@@ -258,20 +257,21 @@
             }
         }
 
-        function deleteVideo(id) {
-            if (!confirm('この動画を削除しますか？')) return;
+        // 削除要請（同じIPからの連投制限）
+        function requestDelete(id) {
+            if (!confirm('この動画の削除要請を送りますか？')) return;
 
             fetch(GAS_API_URL, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'delete', id: id })
+                body: JSON.stringify({ action: 'requestDelete', id: id })
             })
             .then(res => res.json())
             .then(res => {
                 if (res.status === 'success') {
-                    alert('動画を削除しました');
+                    alert('削除要請を受け付けました。');
                     loadVideos();
                 } else {
-                    alert(res.message || '削除権限がありません（あなたが投稿した端末・ブラウザからのみ削除できます）');
+                    alert(res.message || 'すでに要請済みです。');
                 }
             });
         }
