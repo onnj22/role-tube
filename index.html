@@ -139,11 +139,12 @@
         }
         .comment-list { display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto; }
         .comment-item { background: #212121; padding: 8px 12px; border-radius: 6px; font-size: 14px; word-break: break-all; }
+        .comment-date { font-size: 11px; color: #888; margin-top: 2px; }
     </style>
 </head>
 <body>
 
-    <!-- 利用規約モーダル（強制表示） -->
+    <!-- 利用規約モーダル -->
     <div id="terms-modal">
         <div class="terms-content">
             <h2>ロレtube 利用規約</h2>
@@ -175,7 +176,6 @@
         <div id="video-grid" class="video-grid"></div>
     </div>
 
-    <!-- アップロード中のくるくるローディング画面 -->
     <div id="loading-overlay">
         <div class="spinner"></div>
         <div>動画を最適化してアップロード中...</div>
@@ -208,7 +208,7 @@
                 <button class="close-player" onclick="closePlayer()">閉じる</button>
             </div>
 
-            <!-- コメント機能エリア -->
+            <!-- コメント機能エリア（同期対応） -->
             <div class="comments-section">
                 <h3>コメント</h3>
                 <div class="comment-input-box">
@@ -224,7 +224,6 @@
         const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyX9Cb15kpNYsKLahtFzo_08etEy28dcLLyG3e_YwqRnKYfbMFxCDCki1nfwmB6cBnF/exec';
 
         window.onload = function() {
-            // アクセス時に利用規約の同意状態をチェック（今回は「毎回必ず表示」にするためlocalStorageを使わず毎回表示します）
             document.getElementById('terms-modal').style.display = 'flex';
             loadVideos();
         };
@@ -287,6 +286,7 @@
             const likesCountEl = document.getElementById('player-likes');
             likesCountEl.textContent = video.likes;
 
+            // 閲覧数＋1
             fetch(GAS_API_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'view', id: video.id })
@@ -294,6 +294,7 @@
                 loadVideos();
             });
 
+            // スプレッドシートからコメントを読み込み
             loadComments(video.id);
 
             const likedList = JSON.parse(localStorage.getItem('liked_videos') || '[]');
@@ -331,39 +332,60 @@
             document.getElementById('player-modal').style.display = 'none';
         }
 
+        // スプレッドシートからコメントを取得して表示
         function loadComments(videoId) {
             const commentListEl = document.getElementById('comment-list');
-            commentListEl.innerHTML = '';
-            const allComments = JSON.parse(localStorage.getItem('comments_data') || '{}');
-            const videoComments = allComments[videoId] || [];
+            commentListEl.innerHTML = '<div style="color: #888; font-size: 13px;">読み込み中...</div>';
 
-            if (videoComments.length === 0) {
-                commentListEl.innerHTML = '<div style="color: #777; font-size: 13px;">まだコメントはありません。</div>';
-                return;
-            }
-
-            videoComments.forEach(c => {
-                const item = document.createElement('div');
-                item.className = 'comment-item';
-                item.textContent = c;
-                commentListEl.appendChild(item);
-            });
+            fetch(`${GAS_API_URL}?action=getComments&id=${videoId}`)
+                .then(res => res.json())
+                .then(data => {
+                    commentListEl.innerHTML = '';
+                    if (data.status === 'success') {
+                        if (data.comments.length === 0) {
+                            commentListEl.innerHTML = '<div style="color: #777; font-size: 13px;">まだコメントはありません。</div>';
+                            return;
+                        }
+                        data.comments.forEach(c => {
+                            const item = document.createElement('div');
+                            item.className = 'comment-item';
+                            item.innerHTML = `<div>${escapeHtml(c.text)}</div><div class="comment-date">${c.createdAt}</div>`;
+                            commentListEl.appendChild(item);
+                        });
+                    }
+                })
+                .catch(() => {
+                    commentListEl.innerHTML = '<div style="color: #ff4d4d; font-size: 13px;">コメントの読み込みに失敗しました。</div>';
+                });
         }
 
+        // コメントをスプレッドシートに送信して保存
         function postComment() {
             const input = document.getElementById('comment-input');
             const text = input.value.trim();
             if (!text || !currentVideoId) return;
 
-            const allComments = JSON.parse(localStorage.getItem('comments_data') || '{}');
-            if (!allComments[currentVideoId]) {
-                allComments[currentVideoId] = [];
-            }
-            allComments[currentVideoId].push(text);
-            localStorage.setItem('comments_data', JSON.stringify(allComments));
-
             input.value = '';
-            loadComments(currentVideoId);
+
+            fetch(GAS_API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'postComment',
+                    id: currentVideoId,
+                    text: text
+                })
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    loadComments(currentVideoId); // コメント一覧を再読み込みして同期
+                } else {
+                    alert('コメントの投稿に失敗しました。');
+                }
+            })
+            .catch(() => {
+                alert('通信エラーが発生しました。');
+            });
         }
 
         function uploadVideo() {
