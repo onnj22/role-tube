@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ロレtube</title>
     <!-- サイトのアイコン（ファビコン） -->
-    <link rel="icon" href="アイコン.png" type="image/png">
+    <link rel="icon" href="images (1).png" type="image/png">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -18,14 +18,15 @@
             padding: 12px 24px; background-color: #212121;
             position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #383838;
         }
-        /* ロゴ画像スタイル */
-        .logo-container {
-            display: flex; align-items: center; cursor: pointer; height: 32px;
+        /* ヘッダーのロゴ部分（画像と文字をきれいに並べる） */
+        .logo-area {
+            display: flex; align-items: center; gap: 8px; cursor: pointer;
         }
-        .logo-container img {
-            height: 100%; object-fit: contain;
+        .logo-icon {
+            height: 28px; width: auto; object-fit: contain;
         }
-
+        h1 { margin: 0; font-size: 20px; color: #ff0000; }
+        
         .upload-btn {
             background-color: #cc0000; color: white; border: none;
             padding: 8px 16px; border-radius: 18px; font-weight: bold; cursor: pointer;
@@ -104,9 +105,9 @@
 <body>
 
     <header>
-        <!-- ▼ ヘルパーロゴに「アイコン.png」を指定 -->
-        <div class="logo-container" onclick="loadVideos()">
-            <img src="アイコン.png" alt="ロレtubeロゴ">
+        <div class="logo-area" onclick="loadVideos()">
+            <img src="images (1).png" alt="ロゴアイコン" class="logo-icon">
+            <h1>ロレtube</h1>
         </div>
         <button class="upload-btn" onclick="openUploadModal()">＋ 投稿</button>
     </header>
@@ -413,7 +414,7 @@
 
         function escapeHtml(str) {
             return str.replace(/[&'`<>]/g, match => ({
-                '&': '&amp;', "'": '&#x27;', '`': '`', '<': '&lt;', '>': '&gt;'
+                '&': '&amp;', "'": '&#x27;', '`': '&#x60;', '<': '&lt;', '>': '&gt;'
             }[match]));
         }
     </script>
