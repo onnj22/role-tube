@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ロレtube</title>
-    <!-- サイトのアイコン（ファビコン） -->
     <link rel="icon" href="images (1).png" type="image/png">
     <style>
         * { box-sizing: border-box; }
@@ -18,15 +17,13 @@
             padding: 12px 24px; background-color: #212121;
             position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #383838;
         }
-        /* ヘッダーのロゴ部分のレイアウト */
         .logo-area {
             display: flex; align-items: center; gap: 8px; cursor: pointer;
         }
-        .logo-area img {
-            height: 28px; width: auto; object-fit: contain;
+        .site-logo {
+            width: 28px; height: 28px; object-fit: contain; border-radius: 4px;
         }
         h1 { margin: 0; font-size: 20px; color: #ff0000; }
-
         .upload-btn {
             background-color: #cc0000; color: white; border: none;
             padding: 8px 16px; border-radius: 18px; font-weight: bold; cursor: pointer;
@@ -106,7 +103,7 @@
 
     <header>
         <div class="logo-area" onclick="loadVideos()">
-            <img src="images (1).png" alt="アイコン">
+            <img src="images (1).png" alt="ロゴ" class="site-logo">
             <h1>ロレtube</h1>
         </div>
         <button class="upload-btn" onclick="openUploadModal()">＋ 投稿</button>
@@ -207,7 +204,7 @@
             const likesCountEl = document.getElementById('player-likes');
             likesCountEl.textContent = video.likes;
 
-            // 動画再生時に閲覧数を＋1する通信
+            // 再生時に閲覧数を＋1
             fetch(GAS_API_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'view', id: video.id })
