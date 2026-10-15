@@ -18,7 +18,15 @@
             padding: 12px 24px; background-color: #212121;
             position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #383838;
         }
-        h1 { margin: 0; font-size: 20px; color: #ff0000; cursor: pointer; }
+        /* ヘッダーのロゴ部分のスタイル */
+        .logo-container {
+            display: flex; align-items: center; gap: 8px; cursor: pointer;
+        }
+        .header-icon {
+            width: 28px; height: 28px; object-fit: contain; border-radius: 4px;
+        }
+        h1 { margin: 0; font-size: 20px; color: #ff0000; }
+
         .upload-btn {
             background-color: #cc0000; color: white; border: none;
             padding: 8px 16px; border-radius: 18px; font-weight: bold; cursor: pointer;
@@ -97,7 +105,10 @@
 <body>
 
     <header>
-        <h1 onclick="loadVideos()">▶ ロレtube</h1>
+        <div class="logo-container" onclick="loadVideos()">
+            <img src="images (1).png" alt="アイコン" class="header-icon">
+            <h1>ロレtube</h1>
+        </div>
         <button class="upload-btn" onclick="openUploadModal()">＋ 投稿</button>
     </header>
 
