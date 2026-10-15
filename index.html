@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>roleTube</title>
+    <title>ロレtube</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -66,7 +66,7 @@
         .cancel-btn { background: #444; color: #fff; }
         .submit-btn { background: #3ea6ff; color: #000; }
 
-        /* くるくるローディング画面のスタイル */
+        /* くるくるローディング画面 */
         #loading-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.8); z-index: 2000;
@@ -95,7 +95,7 @@
 <body>
 
     <header>
-        <h1 onclick="loadVideos()">▶ ミニYouTube</h1>
+        <h1 onclick="loadVideos()">▶ ロレtube</h1>
         <button class="upload-btn" onclick="openUploadModal()">＋ 投稿</button>
     </header>
 
@@ -228,7 +228,6 @@
             document.getElementById('player-modal').style.display = 'none';
         }
 
-        // 動画をロードして720px幅にリサイズ・圧縮してから送信する関数
         function uploadVideo() {
             const title = document.getElementById('video-title').value.trim();
             const thumbFile = document.getElementById('thumb-file').files[0];
@@ -240,13 +239,12 @@
             }
 
             closeUploadModal();
-            showLoading(); // くるくるアニメーション表示
+            showLoading();
 
             const readerThumb = new FileReader();
             readerThumb.onload = function(e) {
                 const thumbBase64 = e.target.result;
 
-                // 動画ファイルをブラウザ上で縮小（最大幅720px）処理する
                 const videoElement = document.createElement('video');
                 videoElement.src = URL.createObjectURL(videoFile);
                 videoElement.muted = true;
@@ -272,13 +270,13 @@
                     const ctx = canvas.getContext('2d');
 
                     const chunks = [];
-                    const mediaStream = canvas.captureStream(30); // 30fps
+                    const mediaStream = canvas.captureStream(30);
                     let recorder;
 
                     try {
                         recorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm;codecs=vp9' });
                     } catch (err) {
-                        recorder = new MediaRecorder(mediaStream); // フォールバック
+                        recorder = new MediaRecorder(mediaStream);
                     }
 
                     recorder.ondataavailable = function(event) {
@@ -292,7 +290,6 @@
                         readerCompressed.onload = function(ev) {
                             const videoBase64 = ev.target.result;
 
-                            // サーバー（GAS）へ送信
                             fetch(GAS_API_URL, {
                                 method: 'POST',
                                 body: JSON.stringify({
@@ -304,7 +301,7 @@
                             })
                             .then(res => res.json())
                             .then(res => {
-                                hideLoading(); // くるくる終了
+                                hideLoading();
                                 if (res.status === 'success') {
                                     alert('投稿が完了しました！');
                                     document.getElementById('video-title').value = '';
@@ -324,7 +321,6 @@
 
                     recorder.start();
 
-                    // 動画の再生に合わせてキャンバスに描き込み、軽量な動画として再エンコード
                     function drawFrame() {
                         if (videoElement.ended || videoElement.paused) {
                             recorder.stop();
@@ -340,7 +336,6 @@
                 };
 
                 videoElement.onerror = function() {
-                    // もしリサイズ処理でエラーが出た場合は元のファイルのまま送信する安全策
                     const readerVideo = new FileReader();
                     readerVideo.onload = function(ev) {
                         sendDirect(title, thumbBase64, ev.target.result);
