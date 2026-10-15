@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ロレtube</title>
+    <!-- サイトのアイコン（ファビコン） -->
     <link rel="icon" href="images (1).png" type="image/png">
     <style>
         * { box-sizing: border-box; }
@@ -194,6 +195,14 @@
             const likeBtn = document.getElementById('like-action-btn');
             const likesCountEl = document.getElementById('player-likes');
             likesCountEl.textContent = video.likes;
+
+            // 動画再生時に閲覧数を＋1する通信
+            fetch(GAS_API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'view', id: video.id })
+            }).then(() => {
+                loadVideos();
+            });
 
             const likedList = JSON.parse(localStorage.getItem('liked_videos') || '[]');
             if (likedList.includes(video.id)) {
