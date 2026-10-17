@@ -198,7 +198,7 @@
     <!-- 進捗ゲージ付きローディング画面 -->
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <div id="loading-text">動画を最適化中...</div>
+        <div id="loading-text">ファイルを読み込み中...</div>
         <div class="progress-container">
             <div id="progress-bar" class="progress-bar"></div>
         </div>
@@ -424,7 +424,7 @@
             });
         }
 
-        // ゲージ表示付きの最適化＆アップロード処理
+        // 音の最適化（リアルタイム録画）を排除した高速ダイレクト読み込み＆送信
         function uploadVideo() {
             const title = document.getElementById('video-title').value.trim();
             const thumbFile = document.getElementById('thumb-file').files[0];
@@ -436,122 +436,44 @@
             }
 
             closeUploadModal();
-            showLoading('動画を最適化処理中...');
+            showLoading('ファイルを読み込み中...');
 
-            const readerThumb = new FileReader();
-            readerThumb.onload = function(e) {
-                const thumbBase64 = e.target.result;
+            const processUpload = (thumbBase64) => {
+                const readerVideo = new FileReader();
 
-                const videoElement = document.createElement('video');
-                videoElement.src = URL.createObjectURL(videoFile);
-                videoElement.muted = false;
-                videoElement.playsInline = true;
-
-                videoElement.onloadedmetadata = function() {
-                    const duration = videoElement.duration || 1;
-                    let width = videoElement.videoWidth;
-                    let height = videoElement.videoHeight;
-                    const maxWidth = 720;
-
-                    if (width > maxWidth) {
-                        height = Math.round((height * maxWidth) / width);
-                        width = maxWidth;
+                readerVideo.onprogress = function(event) {
+                    if (event.lengthComputable) {
+                        const pct = (event.loaded / event.total) * 50;
+                        updateProgress(pct, '動画ファイルを読み込み中...');
                     }
-
-                    videoElement.width = width;
-                    videoElement.height = height;
-
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-
-                    let mediaStream;
-                    try {
-                        const canvasStream = canvas.captureStream(30);
-                        if (videoElement.captureStream) {
-                            const originalStream = videoElement.captureStream();
-                            const audioTracks = originalStream.getAudioTracks();
-                            if (audioTracks.length > 0) {
-                                canvasStream.addTrack(audioTracks[0]);
-                            }
-                        }
-                        mediaStream = canvasStream;
-                    } catch (err) {
-                        mediaStream = canvas.captureStream(30);
-                    }
-
-                    const chunks = [];
-                    let recorder;
-
-                    try {
-                        recorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm;codecs=vp9,opus' });
-                    } catch (err) {
-                        try {
-                            recorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm' });
-                        } catch (e2) {
-                            recorder = new MediaRecorder(mediaStream);
-                        }
-                    }
-
-                    recorder.ondataavailable = function(event) {
-                        if (event.data.size > 0) chunks.push(event.data);
-                    };
-
-                    recorder.onstop = function() {
-                        updateProgress(75, 'サーバーへ送信中...');
-                        const compressedBlob = new Blob(chunks, { type: 'video/webm' });
-                        const readerCompressed = new FileReader();
-
-                        readerCompressed.onload = function(ev) {
-                            const videoBase64 = ev.target.result;
-                            sendDirect(title, thumbBase64, videoBase64);
-                        };
-                        readerCompressed.readAsDataURL(compressedBlob);
-                    };
-
-                    recorder.start();
-                    videoElement.play();
-
-                    function updateOptimizationProgress() {
-                        if (videoElement.ended || videoElement.paused) {
-                            recorder.stop();
-                            return;
-                        }
-                        ctx.drawImage(videoElement, 0, 0, width, height);
-                        
-                        // 0% 〜 75% までの進捗をアニメーション計算
-                        const current = videoElement.currentTime;
-                        const pct = (current / duration) * 70;
-                        updateProgress(pct, '動画を最適化処理中...');
-
-                        requestAnimationFrame(updateOptimizationProgress);
-                    }
-
-                    videoElement.onplay = () => {
-                        requestAnimationFrame(updateOptimizationProgress);
-                    };
                 };
 
-                videoElement.onerror = function() {
-                    updateProgress(50, 'ダイレクト送信準備中...');
-                    const readerVideo = new FileReader();
-                    readerVideo.onload = function(ev) {
-                        sendDirect(title, thumbBase64, ev.target.result);
-                    };
-                    readerVideo.readAsDataURL(videoFile);
+                readerVideo.onload = function(e) {
+                    const videoBase64 = e.target.result;
+                    sendDirect(title, thumbBase64, videoBase64);
                 };
+
+                readerVideo.onerror = function() {
+                    hideLoading();
+                    alert('動画ファイルの読み込みに失敗しました');
+                };
+
+                readerVideo.readAsDataURL(videoFile);
             };
 
             if (thumbFile) {
+                const readerThumb = new FileReader();
+                readerThumb.onload = function(e) {
+                    processUpload(e.target.result);
+                };
                 readerThumb.readAsDataURL(thumbFile);
             } else {
-                readerThumb.onload({ target: { result: '' } });
+                processUpload('');
             }
         }
 
         function sendDirect(title, thumbBase64, videoBase64) {
-            updateProgress(85, 'サーバーへ最終保存中...');
+            updateProgress(70, 'サーバーへ送信中...');
             
             fetch(GAS_API_URL, {
                 method: 'POST',
