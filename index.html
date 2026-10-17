@@ -24,11 +24,18 @@
             width: 28px; height: 28px; object-fit: contain; border-radius: 4px;
         }
         h1 { margin: 0; font-size: 20px; color: #ff0000; }
+        
+        .header-actions { display: flex; align-items: center; gap: 10px; }
         .upload-btn {
             background-color: #cc0000; color: white; border: none;
             padding: 8px 16px; border-radius: 18px; font-weight: bold; cursor: pointer;
         }
         .upload-btn:hover { background-color: #e60000; }
+        .terms-open-btn {
+            background-color: #333; color: #fff; border: 1px solid #555;
+            padding: 8px 14px; border-radius: 18px; font-size: 13px; cursor: pointer;
+        }
+        .terms-open-btn:hover { background-color: #444; }
 
         .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
         
@@ -55,8 +62,8 @@
 
         /* 利用規約モーダル */
         #terms-modal {
-            display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); justify-content: center; align-items: center; z-index: 3000;
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 3000;
         }
         .terms-content {
             background: #212121; padding: 24px; border-radius: 12px; width: 90%; max-width: 500px;
@@ -67,11 +74,11 @@
             background: #121212; border: 1px solid #383838; padding: 12px; border-radius: 6px;
             height: 200px; overflow-y: auto; font-size: 13px; color: #ccc; line-height: 1.6;
         }
-        .terms-btn {
-            background: #cc0000; color: white; border: none; padding: 12px;
-            border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; width: 100%;
+        .terms-close-btn {
+            background: #444; color: white; border: none; padding: 10px;
+            border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; width: 100%;
         }
-        .terms-btn:hover { background: #e60000; }
+        .terms-close-btn:hover { background: #555; }
 
         /* モーダル共通 */
         #upload-modal, #player-modal {
@@ -93,12 +100,12 @@
         .cancel-btn { background: #444; color: #fff; }
         .submit-btn { background: #3ea6ff; color: #000; }
 
-        /* くるくるローディング画面 */
+        /* アップロードゲージ付きローディング画面 */
         #loading-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8); z-index: 2000;
+            background: rgba(0, 0, 0, 0.88); z-index: 2000;
             justify-content: center; align-items: center; flex-direction: column; gap: 16px;
-            color: #fff; font-size: 16px; font-weight: bold;
+            color: #fff; font-size: 16px; font-weight: bold; padding: 20px;
         }
         .spinner {
             width: 50px; height: 50px; border: 5px solid #383838;
@@ -109,6 +116,15 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .progress-container {
+            width: 100%; max-width: 320px; background-color: #383838;
+            border-radius: 10px; overflow: hidden; height: 16px; margin-top: 8px;
+        }
+        .progress-bar {
+            width: 0%; height: 100%; background-color: #ff0000;
+            transition: width 0.2s ease-in-out;
+        }
+        .progress-status { font-size: 14px; color: #aaa; margin-top: -4px; }
 
         /* 再生モーダル */
         .player-content {
@@ -160,7 +176,7 @@
                 <p><strong>第3条（禁止事項）</strong><br>
                 公序良俗に反する行為、著作権侵害にあたるコンテンツの投稿、スパム行為、その他管理人が不適切と判断する行為を禁止します。</p>
             </div>
-            <button class="terms-btn" onclick="agreeTerms()">同意してサイトに入る</button>
+            <button class="terms-close-btn" onclick="closeTermsModal()">閉じる</button>
         </div>
     </div>
 
@@ -169,16 +185,24 @@
             <img src="images (1).png" alt="ロゴ" class="site-logo">
             <h1>ロレtube</h1>
         </div>
-        <button class="upload-btn" onclick="openUploadModal()">＋ 投稿</button>
+        <div class="header-actions">
+            <button class="terms-open-btn" onclick="openTermsModal()">利用規約を読む</button>
+            <button class="upload-btn" onclick="openUploadModal()">＋ 投稿</button>
+        </div>
     </header>
 
     <div class="container">
         <div id="video-grid" class="video-grid"></div>
     </div>
 
+    <!-- 進捗ゲージ付きローディング画面 -->
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <div>動画を最適化してアップロード中...</div>
+        <div id="loading-text">動画を最適化中...</div>
+        <div class="progress-container">
+            <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <div id="progress-percent" class="progress-status">0%</div>
     </div>
 
     <!-- 投稿モーダル -->
@@ -208,7 +232,7 @@
                 <button class="close-player" onclick="closePlayer()">閉じる</button>
             </div>
 
-            <!-- コメント機能エリア（オンライン同期） -->
+            <!-- コメント機能エリア -->
             <div class="comments-section">
                 <h3>コメント</h3>
                 <div class="comment-input-box">
@@ -224,13 +248,11 @@
         const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyX9Cb15kpNYsKLahtFzo_08etEy28dcLLyG3e_YwqRnKYfbMFxCDCki1nfwmB6cBnF/exec';
 
         window.onload = function() {
-            document.getElementById('terms-modal').style.display = 'flex';
             loadVideos();
         };
 
-        function agreeTerms() {
-            document.getElementById('terms-modal').style.display = 'none';
-        }
+        function openTermsModal() { document.getElementById('terms-modal').style.display = 'flex'; }
+        function closeTermsModal() { document.getElementById('terms-modal').style.display = 'none'; }
 
         let currentVideoId = null;
 
@@ -273,8 +295,26 @@
 
         function openUploadModal() { document.getElementById('upload-modal').style.display = 'flex'; }
         function closeUploadModal() { document.getElementById('upload-modal').style.display = 'none'; }
-        function showLoading() { document.getElementById('loading-overlay').style.display = 'flex'; }
-        function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
+        
+        function showLoading(text) {
+            document.getElementById('loading-text').textContent = text || '処理中...';
+            updateProgress(0);
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        function updateProgress(percent, text) {
+            const bar = document.getElementById('progress-bar');
+            const txt = document.getElementById('progress-percent');
+            const lbl = document.getElementById('loading-text');
+            const p = Math.min(100, Math.max(0, Math.round(percent)));
+            bar.style.width = p + '%';
+            txt.textContent = p + '%';
+            if (text) lbl.textContent = text;
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
 
         function openPlayer(video) {
             currentVideoId = video.id;
@@ -384,6 +424,7 @@
             });
         }
 
+        // ゲージ表示付きの最適化＆アップロード処理
         function uploadVideo() {
             const title = document.getElementById('video-title').value.trim();
             const thumbFile = document.getElementById('thumb-file').files[0];
@@ -395,7 +436,7 @@
             }
 
             closeUploadModal();
-            showLoading();
+            showLoading('動画を最適化処理中...');
 
             const readerThumb = new FileReader();
             readerThumb.onload = function(e) {
@@ -403,10 +444,11 @@
 
                 const videoElement = document.createElement('video');
                 videoElement.src = URL.createObjectURL(videoFile);
-                videoElement.muted = true;
+                videoElement.muted = false;
                 videoElement.playsInline = true;
 
                 videoElement.onloadedmetadata = function() {
+                    const duration = videoElement.duration || 1;
                     let width = videoElement.videoWidth;
                     let height = videoElement.videoHeight;
                     const maxWidth = 720;
@@ -418,21 +460,38 @@
 
                     videoElement.width = width;
                     videoElement.height = height;
-                    videoElement.play();
 
                     const canvas = document.createElement('canvas');
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
 
+                    let mediaStream;
+                    try {
+                        const canvasStream = canvas.captureStream(30);
+                        if (videoElement.captureStream) {
+                            const originalStream = videoElement.captureStream();
+                            const audioTracks = originalStream.getAudioTracks();
+                            if (audioTracks.length > 0) {
+                                canvasStream.addTrack(audioTracks[0]);
+                            }
+                        }
+                        mediaStream = canvasStream;
+                    } catch (err) {
+                        mediaStream = canvas.captureStream(30);
+                    }
+
                     const chunks = [];
-                    const mediaStream = canvas.captureStream(30);
                     let recorder;
 
                     try {
-                        recorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm;codecs=vp9' });
+                        recorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm;codecs=vp9,opus' });
                     } catch (err) {
-                        recorder = new MediaRecorder(mediaStream);
+                        try {
+                            recorder = new MediaRecorder(mediaStream, { mimeType: 'video/webm' });
+                        } catch (e2) {
+                            recorder = new MediaRecorder(mediaStream);
+                        }
                     }
 
                     recorder.ondataavailable = function(event) {
@@ -440,58 +499,42 @@
                     };
 
                     recorder.onstop = function() {
+                        updateProgress(75, 'サーバーへ送信中...');
                         const compressedBlob = new Blob(chunks, { type: 'video/webm' });
                         const readerCompressed = new FileReader();
 
                         readerCompressed.onload = function(ev) {
                             const videoBase64 = ev.target.result;
-
-                            fetch(GAS_API_URL, {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                    action: 'upload',
-                                    title: title,
-                                    thumbnail: thumbBase64,
-                                    videoUrl: videoBase64
-                                })
-                            })
-                            .then(res => res.json())
-                            .then(res => {
-                                hideLoading();
-                                if (res.status === 'success') {
-                                    alert('投稿が完了しました！');
-                                    document.getElementById('video-title').value = '';
-                                    document.getElementById('thumb-file').value = '';
-                                    document.getElementById('video-file').value = '';
-                                    loadVideos();
-                                } else {
-                                    alert('エラーが発生しました');
-                                }
-                            }).catch(() => {
-                                hideLoading();
-                                alert('通信エラーが発生しました');
-                            });
+                            sendDirect(title, thumbBase64, videoBase64);
                         };
                         readerCompressed.readAsDataURL(compressedBlob);
                     };
 
                     recorder.start();
+                    videoElement.play();
 
-                    function drawFrame() {
+                    function updateOptimizationProgress() {
                         if (videoElement.ended || videoElement.paused) {
                             recorder.stop();
                             return;
                         }
                         ctx.drawImage(videoElement, 0, 0, width, height);
-                        requestAnimationFrame(drawFrame);
+                        
+                        // 0% 〜 75% までの進捗をアニメーション計算
+                        const current = videoElement.currentTime;
+                        const pct = (current / duration) * 70;
+                        updateProgress(pct, '動画を最適化処理中...');
+
+                        requestAnimationFrame(updateOptimizationProgress);
                     }
 
                     videoElement.onplay = () => {
-                        requestAnimationFrame(drawFrame);
+                        requestAnimationFrame(updateOptimizationProgress);
                     };
                 };
 
                 videoElement.onerror = function() {
+                    updateProgress(50, 'ダイレクト送信準備中...');
                     const readerVideo = new FileReader();
                     readerVideo.onload = function(ev) {
                         sendDirect(title, thumbBase64, ev.target.result);
@@ -508,6 +551,8 @@
         }
 
         function sendDirect(title, thumbBase64, videoBase64) {
+            updateProgress(85, 'サーバーへ最終保存中...');
+            
             fetch(GAS_API_URL, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -519,13 +564,22 @@
             })
             .then(res => res.json())
             .then(res => {
+                updateProgress(100, '完了！');
+                setTimeout(() => {
+                    hideLoading();
+                    if (res.status === 'success') {
+                        alert('投稿が完了しました！');
+                        document.getElementById('video-title').value = '';
+                        document.getElementById('thumb-file').value = '';
+                        document.getElementById('video-file').value = '';
+                        loadVideos();
+                    } else {
+                        alert('エラーが発生しました');
+                    }
+                }, 300);
+            }).catch(() => {
                 hideLoading();
-                if (res.status === 'success') {
-                    alert('投稿が完了しました！');
-                    loadVideos();
-                } else {
-                    alert('エラーが発生しました');
-                }
+                alert('通信エラーが発生しました');
             });
         }
 
